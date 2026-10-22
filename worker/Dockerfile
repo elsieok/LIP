@@ -9,7 +9,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY worker/app/ ./app/
+COPY app/ ./app/
 
 ENV MODEL_PATH=/models/qwen2.5-1.5b-instruct-q4_k_m.gguf
 EXPOSE 8000

@@ -1,0 +1,41 @@
+version: "3.9"
+services:
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 5s
+      retries: 10
+
+  router:
+    build: ./router
+    ports:
+      - "8000:8000"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  worker:
+    build: ./worker
+    deploy:
+      replicas: 3
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - MODEL_PATH=/models/qwen2.5-1.5b-instruct-q4_k_m.gguf
+    volumes:
+      - ./models:/models
+    depends_on:
+      redpanda:
+        condition: service_healthy

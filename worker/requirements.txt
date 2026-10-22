@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+sse-starlette
+llama-cpp-python
+confluent-kafka
+prometheus-client
+python-dotenv
