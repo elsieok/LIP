@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from .inference import generate, get_model
+from .inference import get_model, generate, generate_stream
 
 from contextlib import asynccontextmanager
+
+from sse_starlette.sse import EventSourceResponse
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,3 +30,11 @@ def health():
 def generate_endpoint(req: GenerateRequest):
     text = generate(req.prompt, req.max_tokens)
     return {"completion": text}
+
+@app.post("/generate/stream")
+async def generate_stream_endpoint(req: GenerateRequest):
+    def event_generator():
+        for token in generate_stream(req.prompt, req.max_tokens):
+            yield {"event": "token", "data": token}
+        yield {"event": "done", "data": ""}
+    return EventSourceResponse(event_generator())

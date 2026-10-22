@@ -1,7 +1,8 @@
 import os
+from collections.abc import Iterator
 from llama_cpp import Llama
 from typing import cast
-from llama_cpp.llama_types import CreateChatCompletionResponse
+from llama_cpp.llama_types import CreateChatCompletionResponse, CreateChatCompletionStreamResponse
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "models/qwen2.5-1.5b-instruct-q4_k_m.gguf")
 
@@ -33,3 +34,16 @@ def generate(prompt: str, max_tokens: int = 256) -> str:
 
     return content
 
+def generate_stream(prompt: str, max_tokens: int = 256):
+    llm = get_model()
+    stream = cast(Iterator[CreateChatCompletionStreamResponse],
+                  llm.create_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        stream=True # model sends response chunks as they become available
+    ))
+
+    for chunk in stream:
+        delta = chunk["choices"][0]["delta"]
+        if "content" in delta:
+            yield delta["content"]
