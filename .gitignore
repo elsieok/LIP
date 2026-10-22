@@ -4,4 +4,8 @@
 
 # Python cache files
 __pycache__/
-*.py[cod]
+*.pyc
+*.gguf
+k8s/secrets/*.yaml
+benchmarks/results/*.csv
+benchmarks/results/*.png
