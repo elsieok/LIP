@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import json
 import threading
@@ -10,6 +10,8 @@ from .inference import get_model, generate, generate_stream
 from contextlib import asynccontextmanager
 
 from sse_starlette.sse import EventSourceResponse
+
+_model_ready = False
 
 def consume_loop():
     consumer: Consumer = get_consumer()
@@ -50,8 +52,10 @@ def consume_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # run once when the application starts
+    global _model_ready
     # warm model at startup, not on first request
     get_model()
+    _model_ready = True
     threading.Thread(target=consume_loop, daemon=True).start()
     # creates new thread that only runs consume_loop
     # oterwise program would get stuck here and couldn't run things like health or FastAPI (HTTP requests)
@@ -70,6 +74,16 @@ class GenerateRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.get("/healthz/live") # is api up
+def liveness():
+    return {"status": "alive"}
+
+@app.get("/healthz/ready") # is model ready
+def readiness():
+    if not _model_ready:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    return {"status": "ready"}
 
 @app.post("/generate")
 def generate_endpoint(req: GenerateRequest):

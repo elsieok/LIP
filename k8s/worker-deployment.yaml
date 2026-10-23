@@ -23,7 +23,15 @@ spec:
             - {name: MODEL_PATH, value: "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf"}
           volumeMounts:
             - {name: models, mountPath: /models}
-          
+          readinessProbe:
+            httpGet: {path: /healthz/ready, port: 8000}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz/live, port: 8000}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
       volumes:
         - name: models
           hostPath: {path: /home/ubuntu/models}
