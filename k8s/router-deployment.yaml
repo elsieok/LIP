@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router
+  namespace: llm-platform
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: router}}
+  template:
+    metadata: {labels: {app: router}}
+    spec:
+      containers:
+        - name: router
+          image: llm-router:dev
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: "128Mi"
+            limits:
+              memory: "384Mi"
+          ports: [{containerPort: 8000}]
+          env:
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: "redpanda:9092"}

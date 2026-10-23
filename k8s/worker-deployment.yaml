@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: llm-platform
+spec:
+  replicas: 3
+  selector: {matchLabels: {app: worker}}
+  template:
+    metadata: {labels: {app: worker}}
+    spec:
+      containers:
+        - name: worker
+          image: llm-worker:dev
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: "700Mi"
+            limits:
+              memory: "1500Mi"
+          env:
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: "redpanda:9092"}
+            - {name: MODEL_PATH, value: "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf"}
+          volumeMounts:
+            - {name: models, mountPath: /models}
+      volumes:
+        - name: models
+          hostPath: {path: /home/ubuntu/models}
+          

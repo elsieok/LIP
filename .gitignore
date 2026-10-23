@@ -8,4 +8,5 @@ __pycache__/
 *.gguf
 k8s/secrets/*.yaml
 benchmarks/results/*.csv
-benchmarks/results/*.png
+benchmarks/results/*.png*.tar
+models/
