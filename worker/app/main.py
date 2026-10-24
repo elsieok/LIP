@@ -29,6 +29,7 @@ def consume_loop():
 
         payload = json.loads(value)
         request_id = payload["request_id"]
+        print(f"[{WORKER_ID}] RECEIVED {request_id} partition={msg.partition()} offset={msg.offset()}", flush=True)
         try:
             for token in generate_stream(payload["prompt"], payload.get("max_tokens", 256)):
                 producer.produce(
