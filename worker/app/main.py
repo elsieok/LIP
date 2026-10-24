@@ -6,12 +6,10 @@ import os
 import time
 from confluent_kafka import Producer, Consumer
 from .kafka_client import get_consumer, get_result_producer, WORKER_ID
-
 from .inference import get_model, generate, generate_stream
-
 from contextlib import asynccontextmanager
-
 from sse_starlette.sse import EventSourceResponse
+from .metrics import metrics_app, REQUEST_COUNT, REQUEST_LATENCY
 
 _model_ready = False
 BATCH_WINDOW_MS = int(os.environ.get("BATCH_WINDOW_MS", 30))
@@ -70,6 +68,7 @@ async def lifespan(app: FastAPI):
     # cleanup when the application shuts down, if needed
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/metrics", metrics_app)
 
 class GenerateRequest(BaseModel):
     prompt: str

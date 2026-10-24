@@ -10,8 +10,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 from .kafka_client import get_producer, get_results_consumer, produce_request
-
 from contextlib import asynccontextmanager
+from .metrics import metrics_app, REQUEST_COUNT, REQUEST_LATENCY
 
 _waiters: dict[str, queue.Queue[dict[str, Any]]] = {}
 # allows main thread and bg consume_loop thread to share data
@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/metrics", metrics_app)
 producer = get_producer()
 
 class GenerateRequest(BaseModel):
@@ -59,11 +60,11 @@ class GenerateRequest(BaseModel):
 
 def current_consumer_lag() -> int:
     c = Consumer({
-        "bootstrap": os.environ.get(
+        "bootstrap.servers": os.environ.get(
             "KAFKA_BOOTSTRAP_SERVERS",
             "localhost:9092"),
             "group.id": "lag_checker",
-            "enable=auto.commit": False
+            "enable.auto.commit": False
     })
     # sum of (high watermark - commited offset) across partitions for worker groups
     total_lag = 0
@@ -80,6 +81,8 @@ def current_consumer_lag() -> int:
 
 @app.post("/generate")
 async def generate_endpoint(req: GenerateRequest):
+    REQUEST_COUNT.inc()
+
     lag = current_consumer_lag()
     if lag > LAG_THRESHOLD:
         raise HTTPException(status_code=503, detail=f"system overloaded (lag={lag}), try again shortly")
@@ -92,12 +95,13 @@ async def generate_endpoint(req: GenerateRequest):
 
     def event_generator():
         try:
-            while True:
-                payload = q.get(timeout=60)
-                if payload["done"]:
-                    yield {"event": "done", "data": payload["worker_id"]}
-                    break
-                yield {"event": "token", "data": payload["token"]}
+            with REQUEST_LATENCY.time():
+                while True:
+                    payload = q.get(timeout=60)
+                    if payload["done"]:
+                        yield {"event": "done", "data": payload["worker_id"]}
+                        break
+                    yield {"event": "token", "data": payload["token"]}
         finally:
             with _lock:
                 _waiters.pop(request_id, None)
