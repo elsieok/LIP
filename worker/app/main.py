@@ -6,12 +6,10 @@ import os
 import time
 from confluent_kafka import Producer, Consumer
 from .kafka_client import get_consumer, get_result_producer, WORKER_ID
-
 from .inference import get_model, generate, generate_stream
-
 from contextlib import asynccontextmanager
-
 from sse_starlette.sse import EventSourceResponse
+from .metrics import metrics_app, REQUEST_COUNT, REQUEST_LATENCY
 
 _model_ready = False
 BATCH_WINDOW_MS = int(os.environ.get("BATCH_WINDOW_MS", 30))
@@ -32,20 +30,22 @@ def consume_loop():
         for msg in batch:
             payload = json.loads(msg.value())
             request_id = payload["request_id"]
-            # print(f"[{WORKER_ID}] RECEIVED {request_id} partition={msg.partition()} offset={msg.offset()}", flush=True)
+            REQUEST_COUNT.inc()
+            print(f"[{WORKER_ID}] RECEIVED {request_id} partition={msg.partition()} offset={msg.offset()}", flush=True)
             try:
-                for token in generate_stream(payload["prompt"], payload.get("max_tokens", 256)):
+                with REQUEST_LATENCY.time():
+                    for token in generate_stream(payload["prompt"], payload.get("max_tokens", 256)):
+                        producer.produce(
+                            "inference-results",
+                            key=request_id,
+                            value=json.dumps({"request_id": request_id, "token": token, "worker_id": WORKER_ID, "done": False})
+                        )
                     producer.produce(
                         "inference-results",
                         key=request_id,
-                        value=json.dumps({"request_id": request_id, "token": token, "worker_id": WORKER_ID, "done": False})
+                        value=json.dumps({"request_id": request_id, "token": "token", "worker_id": WORKER_ID, "done": True})
                     )
-                producer.produce(
-                    "inference-results",
-                    key=request_id,
-                    value=json.dumps({"request_id": request_id, "token": "token", "worker_id": WORKER_ID, "done": True})
-                )
-                producer.flush()
+                    producer.flush()
                 consumer.commit(message=msg, asynchronous=False) # only commit after full generation succeeded
             except Exception as e:
                 # deliberately do NOT commit — message will be redelivered to another worker on rebalance
@@ -70,6 +70,7 @@ async def lifespan(app: FastAPI):
     # cleanup when the application shuts down, if needed
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/metrics", metrics_app)
 
 class GenerateRequest(BaseModel):
     prompt: str

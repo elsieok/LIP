@@ -1,0 +1,19 @@
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: 'llm-platform'
+        metrics_path: /metrics/
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces: {names: [llm-platform]}
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: (router|worker)
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: "$1:8000"
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            target_label: app
