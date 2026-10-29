@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,/generate (failed),"CatchResponseError(""ChunkedEncodingError(ProtocolError('Response ended prematurely'))"")",1,2026-10-27T02:02:46Z,2026-10-27T02:02:46Z

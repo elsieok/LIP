@@ -4,7 +4,12 @@ metadata:
   name: worker
   namespace: llm-platform
 spec:
-  replicas: 2
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector: {matchLabels: {app: worker}}
   template:
     metadata: {labels: {app: worker}}
@@ -15,24 +20,31 @@ spec:
           imagePullPolicy: IfNotPresent
           resources:
             requests:
+              cpu: "1"
               memory: "700Mi"
             limits:
               memory: "1500Mi"
           env:
             - {name: KAFKA_BOOTSTRAP_SERVERS, value: "redpanda:9092"}
             - {name: MODEL_PATH, value: "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf"}
+            - {name: LLAMA_N_THREADS, value: "1"}
+            - {name: LLAMA_N_CTX, value: "2048"}
+            - {name: BATCH_WINDOW_MS, value: "30"}
           volumeMounts:
             - {name: models, mountPath: /models}
+          startupProbe:
+            httpGet: {path: /healthz/live, port: 8000}
+            periodSeconds: 5
+            failureThreshold: 60
           readinessProbe:
             httpGet: {path: /healthz/ready, port: 8000}
-            initialDelaySeconds: 10
             periodSeconds: 5
+            timeoutSeconds: 5
           livenessProbe:
             httpGet: {path: /healthz/live, port: 8000}
-            initialDelaySeconds: 15
             periodSeconds: 10
-            failureThreshold: 3
+            timeoutSeconds: 5
+            failureThreshold: 6
       volumes:
         - name: models
           hostPath: {path: /home/ubuntu/models}
-          

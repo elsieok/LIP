@@ -1,0 +1,84 @@
+== 1793067167
+redpanda-0                3m    108Mi    
+router-58cbcc5c87-ftlfq   3m    45Mi     
+worker-6d68569686-9pr2q   2m    1101Mi   
+worker-6d68569686-q6jx6   2m    1101Mi   
+worker-6d68569686-xnpkc   2m    1101Mi   
+Mem:            7763        4424         182           2        3156        3125
+== 1793067183
+redpanda-0                3m    108Mi    
+router-58cbcc5c87-ftlfq   3m    45Mi     
+worker-6d68569686-9pr2q   96m   1110Mi   
+worker-6d68569686-q6jx6   2m    1101Mi   
+worker-6d68569686-xnpkc   2m    1101Mi   
+Mem:            7763        4444         161           2        3156        3105
+== 1793067200
+redpanda-0                8m      108Mi    
+router-58cbcc5c87-ftlfq   7m      47Mi     
+worker-6d68569686-9pr2q   1187m   1110Mi   
+worker-6d68569686-q6jx6   564m    1110Mi   
+worker-6d68569686-xnpkc   370m    1110Mi   
+Mem:            7763        4454         151           2        3156        3096
+== 1793067216
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   10m     48Mi     
+worker-6d68569686-9pr2q   1272m   1112Mi   
+worker-6d68569686-q6jx6   1201m   1112Mi   
+worker-6d68569686-xnpkc   1249m   1112Mi   
+Mem:            7763        4439         166           2        3157        3111
+== 1793067232
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   10m     48Mi     
+worker-6d68569686-9pr2q   1254m   1112Mi   
+worker-6d68569686-q6jx6   1263m   1112Mi   
+worker-6d68569686-xnpkc   1337m   1113Mi   
+Mem:            7763        4449         156           2        3157        3101
+== 1793067248
+redpanda-0                12m     108Mi    
+router-58cbcc5c87-ftlfq   11m     49Mi     
+worker-6d68569686-9pr2q   1112m   1113Mi   
+worker-6d68569686-q6jx6   1280m   1113Mi   
+worker-6d68569686-xnpkc   1332m   1113Mi   
+Mem:            7763        4450         154           2        3157        3099
+== 1793067265
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   11m     49Mi     
+worker-6d68569686-9pr2q   1112m   1113Mi   
+worker-6d68569686-q6jx6   1343m   1113Mi   
+worker-6d68569686-xnpkc   1332m   1113Mi   
+Mem:            7763        4474         130           2        3157        3076
+== 1793067281
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   10m     49Mi     
+worker-6d68569686-9pr2q   1269m   1115Mi   
+worker-6d68569686-q6jx6   1184m   1115Mi   
+worker-6d68569686-xnpkc   1365m   1115Mi   
+Mem:            7763        4467         137           2        3158        3083
+== 1793067297
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   10m     49Mi     
+worker-6d68569686-9pr2q   1278m   1117Mi   
+worker-6d68569686-q6jx6   1276m   1115Mi   
+worker-6d68569686-xnpkc   1238m   1117Mi   
+Mem:            7763        4465         139           2        3158        3085
+== 1793067313
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   10m     49Mi     
+worker-6d68569686-9pr2q   1278m   1117Mi   
+worker-6d68569686-q6jx6   1363m   1117Mi   
+worker-6d68569686-xnpkc   1225m   1117Mi   
+Mem:            7763        4492         111           2        3158        3057
+== 1793067330
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   9m      49Mi     
+worker-6d68569686-9pr2q   1218m   1117Mi   
+worker-6d68569686-q6jx6   1315m   1117Mi   
+worker-6d68569686-xnpkc   1165m   1117Mi   
+Mem:            7763        4486         118           2        3158        3063
+== 1793067346
+redpanda-0                11m     108Mi    
+router-58cbcc5c87-ftlfq   10m     50Mi     
+worker-6d68569686-9pr2q   1348m   1119Mi   
+worker-6d68569686-q6jx6   1254m   1119Mi   
+worker-6d68569686-xnpkc   1224m   1119Mi   
+Mem:            7763        4483         121           2        3158        3066

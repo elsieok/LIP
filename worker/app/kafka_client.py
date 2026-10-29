@@ -9,6 +9,7 @@ def get_consumer() -> Consumer:
     c = Consumer({
         "bootstrap.servers": BOOTSTRAP,
         "group.id": "inference-workers",
+        "max.poll.interval.ms": 900000,   # 15 min: a batch of slow requests must not look like a dead consumer
         "auto.offset.reset": "earliest", # a brand-new group reads from the beginning, so no prompts are missed
         "enable.auto.commit": False, # commit manually, only after full completion
     })

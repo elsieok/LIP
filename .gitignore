@@ -11,3 +11,5 @@ benchmarks/results/*.csv
 benchmarks/results/*.png
 *.tar
 models/
+.instance_id
+.instance_ip

@@ -9,7 +9,7 @@ from .kafka_client import get_consumer, get_result_producer, WORKER_ID
 from .inference import get_model, generate, generate_stream
 from contextlib import asynccontextmanager
 from sse_starlette.sse import EventSourceResponse
-from .metrics import metrics_app, REQUEST_COUNT, REQUEST_LATENCY
+from .metrics import metrics_app, REQUEST_COUNT, REQUEST_LATENCY, TOKENS, EXPIRED
 
 _model_ready = False
 BATCH_WINDOW_MS = int(os.environ.get("BATCH_WINDOW_MS", 30))
@@ -18,40 +18,48 @@ def consume_loop():
     consumer: Consumer = get_consumer()
     producer: Producer = get_result_producer()
     while True:
-        batch = []
-        deadline = time.monotonic() + (BATCH_WINDOW_MS / 1000)
-        while time.monotonic() < deadline and len(batch) < 8:
-            msg = consumer.poll(1.0)
-            if msg is not None and not msg.error():
-                batch.append(msg)
-        if not batch:
+        msg = consumer.poll(1.0)
+        if msg is None or msg.error():
             continue
+        batch = [msg]
+        window_end = time.monotonic() + BATCH_WINDOW_MS / 1000
+        while len(batch) < 8 and time.monotonic() < window_end:
+            m = consumer.poll(max(window_end - time.monotonic(), 0))
+            if m is not None and not m.error():
+                batch.append(m)
 
         for msg in batch:
-            payload = json.loads(msg.value())
+            value = msg.value()
+            if not value:
+                continue
+            payload = json.loads(value)
             request_id = payload["request_id"]
+            expires = payload.get("deadline")
+            if expires is not None and time.time() > expires:
+                EXPIRED.inc()
+                print(f"[{WORKER_ID}] EXPIRED {request_id} late_by={time.time() - expires:.1f}s", flush=True)
+                consumer.commit(message=msg, asynchronous=False)
+                continue
             REQUEST_COUNT.inc()
             print(f"[{WORKER_ID}] RECEIVED {request_id} partition={msg.partition()} offset={msg.offset()}", flush=True)
             try:
                 with REQUEST_LATENCY.time():
                     for token in generate_stream(payload["prompt"], payload.get("max_tokens", 256)):
+                        TOKENS.inc()
                         producer.produce(
                             "inference-results",
                             key=request_id,
-                            value=json.dumps({"request_id": request_id, "token": token, "worker_id": WORKER_ID, "done": False})
+                            value=json.dumps({"request_id": request_id, "token": token, "worker_id": WORKER_ID, "done": False}),
                         )
                     producer.produce(
                         "inference-results",
                         key=request_id,
-                        value=json.dumps({"request_id": request_id, "token": "token", "worker_id": WORKER_ID, "done": True})
+                        value=json.dumps({"request_id": request_id, "token": "", "worker_id": WORKER_ID, "done": True}),
                     )
                     producer.flush()
-                consumer.commit(message=msg, asynchronous=False) # only commit after full generation succeeded
+                consumer.commit(message=msg, asynchronous=False)
             except Exception as e:
-                # deliberately do NOT commit — message will be redelivered to another worker on rebalance
-                # documented limitation: partial output before the
-                # crash is not de-duplicated on the client side.
-                print(f"generation failed for {request_id}: {e}")
+                print(f"generation failed for {request_id}: {e}", flush=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

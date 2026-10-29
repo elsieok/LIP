@@ -6,15 +6,20 @@ from llama_cpp.llama_types import CreateChatCompletionResponse, CreateChatComple
 
 MODEL_PATH = os.environ.get("MODEL_PATH", "models/qwen2.5-1.5b-instruct-q4_k_m.gguf")
 
+# n_ctx=int(os.environ.get("LLAMA_N_CTX", "2048")),
+# n_threads=int(os.environ.get("LLAMA_N_THREADS", "1")),
+# n_threads_batch=int(os.environ.get("LLAMA_N_THREADS", "1")),
+
 _llm = None
 
 def get_model() -> Llama:
     global _llm
     if _llm is None:
-        _llm = Llama(
+       _llm = Llama(
             model_path=MODEL_PATH,
-            n_ctx=2048,
-            n_threads=int(os.environ.get("N_THREADS", 4)),
+            n_ctx=int(os.environ.get("LLAMA_N_CTX", "2048")),
+            n_threads=int(os.environ.get("LLAMA_N_THREADS", "1")),
+            n_threads_batch=int(os.environ.get("LLAMA_N_THREADS", "1")),
             verbose=False,
         )
     return _llm

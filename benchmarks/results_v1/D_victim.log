@@ -1,0 +1,62 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     10.42.0.1:44548 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:44558 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:36794 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:36804 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:36808 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49478 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49486 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49494 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:52682 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:52688 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:52698 - "GET /healthz/ready HTTP/1.1" 200 OK
+[worker-6d68569686-82tpm] ASSIGNED partitions [1]
+INFO:     10.42.0.1:60400 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60406 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60412 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49458 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49468 - "GET /healthz/ready HTTP/1.1" 200 OK
+[worker-6d68569686-82tpm] RECEIVED fd8f4331-a873-46f5-b9a4-b2aa5bce2a33 partition=1 offset=0
+INFO:     10.42.0.1:49476 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:38716 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:38724 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:38726 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51826 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51828 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:51844 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49562 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49576 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:49590 - "GET /healthz/ready HTTP/1.1" 200 OK
+[worker-6d68569686-82tpm] RECEIVED 4c8b3606-b912-4666-aa04-d2e4529cd704 partition=1 offset=1
+INFO:     10.42.0.1:43092 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:43104 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:43116 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33086 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33088 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33090 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:47516 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:47518 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:47532 - "GET /healthz/ready HTTP/1.1" 200 OK
+[worker-6d68569686-82tpm] RECEIVED 7ad2ba01-6028-4128-9967-0763a3831ba1 partition=1 offset=2
+INFO:     10.42.0.1:60232 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60248 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:60250 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33962 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33974 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:33978 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:55618 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:55630 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:55638 - "GET /healthz/ready HTTP/1.1" 200 OK
+[worker-6d68569686-82tpm] RECEIVED ce48154b-be26-4d95-845e-8b577e9ea1be partition=1 offset=3
+INFO:     10.42.0.1:50960 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:50970 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:50982 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:56638 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:56646 - "GET /healthz/ready HTTP/1.1" 200 OK
+[worker-6d68569686-82tpm] RECEIVED 4aff1ead-0f22-4348-805c-1e34e9bd0354 partition=1 offset=4
+INFO:     10.42.0.1:56660 - "GET /healthz/ready HTTP/1.1" 200 OK
+INFO:     10.42.0.1:59400 - "GET /healthz/live HTTP/1.1" 200 OK
+INFO:     10.42.0.1:59412 - "GET /healthz/ready HTTP/1.1" 200 OK
