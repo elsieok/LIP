@@ -7,8 +7,7 @@ __pycache__/
 *.pyc
 *.gguf
 k8s/secrets/*.yaml
-benchmarks/results/*.csv
-benchmarks/results/*.png
+results*/
 *.tar
 models/
 .instance_id
