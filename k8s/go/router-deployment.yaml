@@ -1,0 +1,25 @@
+# Drop-in replacement for k8s/router-deployment.yaml (same names and labels, so the
+# existing Service, Ingress, Prometheus config and run_experiments.sh keep working).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: router
+  namespace: llm-platform
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: router}}
+  template:
+    metadata: {labels: {app: router}}
+    spec:
+      containers:
+        - name: router
+          image: llm-router-go:dev
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: "32Mi"
+            limits:
+              memory: "256Mi"
+          ports: [{containerPort: 8000}]
+          env:
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: "redpanda:9092"}

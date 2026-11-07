@@ -3,7 +3,7 @@ set -euo pipefail
 
 KEY=~/.ssh/llm-platform-key.pem
 IP=$(cat deploy/.instance_ip)
-OUT=benchmarks/results_v3
+OUT=${OUT:-benchmarks/results_v3}
 mkdir -p "$OUT"
 SSH="ssh -o ServerAliveInterval=30 -i $KEY ubuntu@$IP"
 

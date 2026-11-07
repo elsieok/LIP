@@ -68,10 +68,19 @@ Everything runs on CPU with a small quantized model (Qwen2.5-1.5B-Instruct, Q4_K
 
 Requires Docker and the model file at `models/qwen2.5-1.5b-instruct-q4_k_m.gguf`.
 
+**Python**
+
 ```bash
 docker compose up -d --build
 ./kafka/create_topics.sh
 docker compose logs -f worker      # each worker logs its consumer-group membership
+```
+
+**Go** (workers talk to a llama-server sidecar; topics are created automatically)
+
+```bash
+docker compose -f docker-compose.go.yml up -d --build
+docker compose -f docker-compose.go.yml logs -f worker-1 worker-2 worker-3
 ```
 
 In another terminal:
@@ -82,6 +91,11 @@ curl -N -X POST localhost:8000/generate -H "Content-Type: application/json" \
 ```
 
 You should see `event: token` lines stream in, ending with `event: done` whose data is the worker that served the request. Run it several times to see different workers.
+
+Before switching stacks, 
+```bash
+run docker compose down # add -f docker-compose.go.yml if you’re stopping the Go one.
+```
 
 ## Kubernetes (k3s)
 
@@ -247,6 +261,124 @@ The fastest request stays at about 10 s however many workers run, so workers no 
 
 **9. The autoscaler worked, and CPU is now a valid signal.** With 12 users, the HPA (min 1, max 3, target 70% CPU utilization, one new Pod per 90 s) went from 1 to 2 replicas about 60 s after load started (utilization 100% of the Pod's CPU request) and to 3 about 90 s later, then stayed at 3 with each worker saturated at about 100%. About 100 s after utilization fell to zero it scaled back down (3 → 2 → 1). Successful throughput rose with each step: about 0.10 req/s with one worker, 0.21 with two, and 0.29 with three. In the first run, CPU was a misleading signal because added workers added no capacity; with one-thread workers, CPU utilization tracks saturation. Scaling on queue lag would still measure unmet demand more directly.
 
+## Go rewrite: Python vs Go comparison
+
+The router and worker are also implemented in Go (`go/`). The Go services are drop-in compatible with the Python ones: same Kafka topics, JSON payloads, metric names and log lines, so either implementation can be swapped in (or mixed) on the same cluster.
+
+**What changed**
+
+| | Python | Go |
+|---|---|---|
+| Kafka client | confluent-kafka (librdkafka) | franz-go (pure Go, no cgo) |
+| Inference | llama-cpp-python, in-process | `llama-server` sidecar container per worker (HTTP, streaming `/v1/chat/completions`) |
+| Router results consumer | consumer group, starts at latest offset | no group, reads from the end of every partition (safe for multiple router replicas) |
+| Worker concurrency | one request at a time | one at a time by default (`WORKER_CONCURRENCY`) |
+| On inference error | request is not committed, client waits for timeout | client gets `event: error`, request is committed |
+
+The Go worker needs a sidecar because llama-cpp-python is Python-only. Each Pod runs the Go worker plus `ghcr.io/ggml-org/llama.cpp:server`.
+
+### Method
+
+- **Node:** one AWS EC2 `c7g.xlarge` (Graviton, 4 vCPU, 8 GB), single-node k3s. Both stacks ran on the same instance, one after the other.
+- **Model:** Qwen2.5-1.5B-Instruct Q4_K_M, one llama.cpp compute thread per worker, one CPU core requested per worker.
+- **Load:** Locust, `"Explain photosynthesis briefly."`, `max_tokens=100`, 0.5–2 s think time, 3 minutes per run unless noted. Topics and Pods are reset before every run.
+- **Resources:** `kubectl top pods --containers` and `free -m` every 15 s (metrics-server smooths over a window).
+- **One run per configuration.** The same configuration (6 users, 3 workers) ran twice per stack and gave 0.183 and 0.262 req/s on Go, 0.201 and 0.248 on Python. Differences of that size are noise.
+
+### Resources (3 workers, 6 users, 3 min)
+
+| | Python | Go |
+|---|---|---|
+| Worker Pod memory, idle | 1,101 MiB | 1,052 MiB (llama-server 1,049 + worker 3) |
+| Worker Pod memory, under load (mean / peak) | 1,118 / 1,138 MiB | 1,079 / 1,116 MiB |
+| Router memory, idle | 45 MiB | 3 MiB |
+| Router memory, under load (peak) | 48 MiB | 11 MiB |
+| Node memory used, peak | 4,613 MiB | 4,523 MiB |
+| Router image | 426 MB | 9 MB |
+| Worker-side images | 490 MB | 306 MB (9 MB worker + 297 MB llama.cpp, pulled once per node) |
+| Pod cold start (single sample) | 6 s | 7 s |
+
+### Throughput and latency
+
+| Run | Users | Workers | req/s (Py / Go) | Median s (Py / Go) | Failed (Py / Go) |
+|---|---:|---:|---|---|---|
+| Scaling | 6 | 1 | 0.114 / 0.108 | 50 / 42 | 0 / 2 |
+| Scaling | 6 | 2 | 0.129 / 0.192 | 35 / 27 | 2 / 0 |
+| Scaling | 6 | 3 | 0.247 / 0.243 | 20 / 20 | 1 / 0 |
+| Load | 1 | 3 | 0.097 / 0.095 | 8.8 / 9.2 | 0 / 0 |
+| Load | 6 | 3 | 0.201 / 0.183 | 20 / 28 | 0 / 0 |
+| Load | 12 | 3 | 0.247 / 0.283 | 28 / 31 | 7 / 2 |
+| Load | 24 | 3 | 0.287 / 0.291 | 50 / 49 | 17 / 17 |
+| Backpressure on (threshold 10) | 40 | 3 | 0.234 / 0.268 | 37 / 31 | 1,026 / 1,024 (979 / 980 × 503) |
+| Backpressure off | 40 | 3 | 0.252 / 0.295 | 56 / 49 | 49 / 49 |
+| Kill a worker at t=120 s (5 min) | 6 | 3 | 0.182 / 0.251 | 19 / 20 | 7 / 0 |
+| HPA 1→3 (8 min) | 12 | 1→3 | 0.241 / 0.258 | 45 / 44 | 13 / 10 |
+| Compare run | 6 | 3 | 0.248 / 0.262 | 20 / 19 | 0 / 1 |
+
+The batch-window experiment ran on Python only (0 ms vs 30 ms: 0.254 vs 0.265 req/s, no real effect). The Go worker has no batch window.
+
+### What the data shows
+
+1. **Go's advantage is footprint, not speed.** The router needs 3 MiB instead of 45 MiB at idle and its image is 98% smaller. At 24 users it also used about half the CPU (about 10 m vs 19 m). The worker Pod is only 2–4% smaller, because the model dominates memory and llama-server holds the same model as llama-cpp-python.
+2. **Throughput and latency are indistinguishable.** With one user the HTTP hop to llama-server costs about 0.4 s (9.2 s vs 8.8 s per request). At 24 users both plateau at about 0.29 req/s with a 49–50 s median. Every per-run gap above is smaller than the run-to-run variation.
+3. **Scaling is limited by partition imbalance, not language.** Both stacks go from about 0.11 req/s with one worker to about 0.24 with three (about 2.2×). The Python two-worker run (0.129) had one worker idle while the other was saturated: with 3 partitions and random request keys, a worker can own a partition that stays empty.
+4. **Backpressure works the same on both.** A lag threshold of 10 rejects about 980 requests immediately with `503` and cuts the median latency of admitted requests by about a third (Go 49→31 s, Python 56→37 s). Goodput does not change, so it protects latency but adds no capacity.
+5. **A killed worker is survivable under load.** In both stacks a replacement Pod was visible about 26 s after the kill. Go showed no visible stall and no failed requests. Python showed a gap of about 30 s in completions and one timeout after the kill; its other six failures were first-request timeouts at about 60 s, consistent with the known router results-consumer gap after a router restart. Similar first-request timeouts appeared in four other Python runs (2 workers, 3 workers, 12 users, and the kill run).
+6. **Autoscaling behaves the same.** With 12 users both stacks scaled 1→2 within about 60 s and →3 within about 150 s, held 3 replicas at 95–100% of the CPU request, and scaled back to 1 about 100–120 s after the load stopped.
+7. **Memory keeps growing during a run.** Over the 8-minute HPA run the oldest Go Pod grew from 1,053 to 1,227 MiB (+174) and the oldest Python Pod from 1,101 to 1,191 MiB (+90). Neither had plateaued. Go's idle advantage disappears on longer runs, and I have not yet checked why (page cache of the mapped model is one candidate).
+
+### Fault tolerance (Go): killing a worker mid-request
+
+Run locally with Docker Compose (`docker-compose.go.yml`, 3 workers, `REQUEST_TTL_S=300`): start a 1,500-token generation, hard-kill the worker that received it with `docker kill`, wait 75 s for the group session timeout.
+
+The victim received the request:
+
+```
+[worker-2] RECEIVED 150b4513-9fbc-4623-ae4c-ede42c609196 partition=0 offset=26
+```
+
+Another worker took over the partition and received the **same message** (same request ID, partition and offset):
+
+```
+[worker-3] ASSIGNED partitions [0]
+[worker-3] RECEIVED 150b4513-9fbc-4623-ae4c-ede42c609196 partition=0 offset=26
+```
+
+The client's stream still ended cleanly, with the surviving worker's name:
+
+```
+event: done
+data: worker-3
+```
+
+**Result:** the killed worker never committed, so Kafka redelivered the message to a surviving group member and the client received a complete response. As with the Python version, delivery is at-least-once: the second worker regenerates from the start, so a client can see repeated tokens.
+
+### Problems found
+
+- **Switching stacks:** Go workers failed to join the `inference-workers` group with `INCONSISTENT_GROUP_PROTOCOL` for about 45 s after Python workers were deleted, because the old members had not left the group. Wait about 60 s after swapping stacks.
+- **Request TTL vs hard kills:** the default request deadline (55 s) leaves only about 10 s of margin over the consumer-group session timeout (about 45 s). After a hard kill, a redelivered request can therefore be skipped as `EXPIRED`. The cluster kill test did not capture a redelivery line; the local run below used `REQUEST_TTL_S=300` and did. Raise the TTL for fault-tolerance tests.
+- **Failure semantics differ:** if `llama-server` dies mid-request, the Go worker reports `event: error` and commits instead of redelivering. A hard Pod kill (worker and sidecar together) still redelivers.
+- **Small samples, one run each:** treat trends, not decimals, as results.
+- **Node disk used** is shared by both stacks (both sets of images are on the node), so only image sizes are compared.
+
+### Reproducing
+
+```bash
+# Go stack: swap the Deployments (same names and labels as the Python ones)
+kubectl delete deployment router worker -n llm-platform
+kubectl apply -f k8s/go/router-deployment.yaml -f k8s/go/worker-deployment.yaml
+
+# experiments (results directory is set with OUT); skip C for Go
+OUT=benchmarks/results_go bash benchmarks/run_experiments.sh A      # A E B D H
+python benchmarks/plot.py benchmarks/results_go
+
+# resource comparison: swaps stacks itself and prints the table above
+bash benchmarks/compare_stacks.sh both
+
+# kill the worker serving an in-flight request and check redelivery
+bash benchmarks/kill_test.sh
+```
+
 ## Known limitations
 
 - **At-least-once, not exactly-once:** a request interrupted mid-generation is regenerated, and the client may see repeated tokens.
@@ -272,12 +404,13 @@ The fastest request stays at about 10 s however many workers run, so workers no 
 ## Reproducing the benchmarks
 
 ```bash
-bash benchmarks/run_experiments.sh A    # worker scaling (1, 2, 3 workers)
-bash benchmarks/run_experiments.sh E    # load levels (1, 6, 12, 24 users)
-bash benchmarks/run_experiments.sh C    # batch window 0 vs 30 ms
-bash benchmarks/run_experiments.sh B    # backpressure threshold 10 vs disabled
-bash benchmarks/run_experiments.sh D    # kill a worker mid-run
-bash benchmarks/run_experiments.sh H    # HPA scale-up and scale-down
+bash benchmarks/run_experiments.sh 
+# A is worker scaling (1, 2, 3 workers)
+# E is load levels (1, 6, 12, 24 users)
+# C is batch window 0 vs 30 ms
+# B is backpressure threshold 10 vs disabled
+# D is kill a worker mid-run
+# H is HPA scale-up and scale-down
 python benchmarks/plot.py benchmarks/results_v3
 ```
 

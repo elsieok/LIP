@@ -1,0 +1,111 @@
+# Go router + Go workers, each worker paired with its own llama-server container.
+# Run from the repo root:  docker compose -f docker-compose.go.yml up -d --build
+# The Python stack (docker-compose.yml) is untouched. Run ONE stack at a time:
+# both use ports 8000/9092 and benchmarks need the CPU to themselves.
+name: llm-platform-go
+
+x-llama: &llama
+  image: ghcr.io/ggml-org/llama.cpp:server
+  # -t = compute threads (1 matches the Python benchmark setup).
+  # With --parallel N, llama-server splits -c across N slots, so use -c N*2048.
+  command: ["-m", "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf", "--host", "0.0.0.0", "--port", "8080",
+            "-c", "2048", "-t", "${LLAMA_THREADS:-1}", "--parallel", "1"]
+  volumes:
+    - ./models:/models:ro
+
+x-worker: &worker
+  image: llm-worker-go:dev
+
+services:
+  worker-build:
+    image: llm-worker-go:dev
+    build:
+      context: ./go
+      target: worker
+    profiles: ["build-only"]
+    
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 5s
+      retries: 10
+
+  # One-shot: create the topics (idempotent), then exit.
+  topics:
+    image: redpandadata/redpanda:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - rpk topic create inference-requests inference-results -p 3 -r 1 -X brokers=redpanda:9092 || true
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: "no"
+
+  router:
+    image: llm-router-go:dev
+    build:
+      context: ./go
+      target: router
+    ports:
+      - "8000:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    depends_on:
+      topics:
+        condition: service_completed_successfully
+
+  llama-1:
+    <<: *llama
+  worker-1:
+    <<: *worker
+    hostname: worker-1
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      LLAMA_SERVER_URL: http://llama-1:8080
+      WORKER_CONCURRENCY: "1"
+    depends_on:
+      topics:
+        condition: service_completed_successfully
+      llama-1:
+        condition: service_started
+
+  llama-2:
+    <<: *llama
+  worker-2:
+    <<: *worker
+    hostname: worker-2
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      LLAMA_SERVER_URL: http://llama-2:8080
+      WORKER_CONCURRENCY: "1"
+    depends_on:
+      topics:
+        condition: service_completed_successfully
+      llama-2:
+        condition: service_started
+
+  llama-3:
+    <<: *llama
+  worker-3:
+    <<: *worker
+    hostname: worker-3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      LLAMA_SERVER_URL: http://llama-3:8080
+      WORKER_CONCURRENCY: "1"
+    depends_on:
+      topics:
+        condition: service_completed_successfully
+      llama-3:
+        condition: service_started

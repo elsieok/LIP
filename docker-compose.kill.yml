@@ -1,0 +1,4 @@
+services:
+  router:
+    environment:
+      REQUEST_TTL_S: "300"

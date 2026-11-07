@@ -1,0 +1,58 @@
+# Drop-in replacement for k8s/worker-deployment.yaml: each Pod runs the Go worker
+# plus a llama-server sidecar (containers in a Pod share localhost).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: llm-platform
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector: {matchLabels: {app: worker}}
+  template:
+    metadata: {labels: {app: worker}}
+    spec:
+      containers:
+        - name: worker
+          image: llm-worker-go:dev
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              memory: "256Mi"
+          env:
+            - {name: KAFKA_BOOTSTRAP_SERVERS, value: "redpanda:9092"}
+            - {name: LLAMA_SERVER_URL, value: "http://localhost:8080"}
+            - {name: WORKER_CONCURRENCY, value: "1"}
+          readinessProbe:               # ready only once llama-server has loaded the model
+            httpGet: {path: /healthz/ready, port: 8000}
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz/live, port: 8000}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+        - name: llama-server
+          image: ghcr.io/ggml-org/llama.cpp:server
+          imagePullPolicy: IfNotPresent
+          args: ["-m", "/models/qwen2.5-1.5b-instruct-q4_k_m.gguf", "--host", "0.0.0.0", "--port", "8080",
+                 "-c", "2048", "-t", "1", "--parallel", "1"]
+          resources:
+            requests:
+              cpu: "1"
+              memory: "700Mi"
+            limits:
+              memory: "1500Mi"
+          volumeMounts:
+            - {name: models, mountPath: /models, readOnly: true}
+      volumes:
+        - name: models
+          hostPath: {path: /home/ubuntu/models}
